@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,46 +8,110 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistance } from 'date-fns';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkoutPlan } from '@/types/workout';
+import { useSession } from 'next-auth/react';
 
 export default function MyPlansPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { data: session } = useSession();
   const [savedPlans, setSavedPlans] = useState<WorkoutPlan[]>([]);
-  const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deletingPlanId, setDeletingPlanId] = useState<String>('');
+
+  const showToast = useCallback((title: string, description: string, variant: "default" | "destructive" = "default") => {
+    toast({
+      title,
+      description,
+      variant,
+    });
+  }, [toast]);
 
   useEffect(() => {
-    setIsClient(true);
-    const plansJson = localStorage.getItem('savedPlans');
-    if (plansJson) {
-      setSavedPlans(JSON.parse(plansJson));
+    console.log("Session:", session);
+    console.log("User ID:", session?.user?.id);
+
+    const fetchPlans = async () => {
+      try {
+        const response = await fetch('/api/plans', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.user?.id}`, // Pass user ID in the headers
+          },
+        });
+
+        if (response.ok) {
+          const plans = await response.json();
+          setSavedPlans(plans);
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to fetch saved plans.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch plans:', error);
+        toast({
+          title: "Error",
+          description: "An error occurred while fetching your plans.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (session?.user?.id) {
+      fetchPlans();
+    } else {
+      setIsLoading(false); 
     }
-  }, []);
+  }, [session?.user?.id, showToast]);
 
   function loadPlan(plan: WorkoutPlan) {
-    // Set as current plan
+    console.log(plan)
+    // Save the selected plan to localStorage
     localStorage.setItem('currentPlan', JSON.stringify(plan));
-
-    toast({
-      title: "Plan Loaded",
-      description: "Your workout plan has been loaded.",
-    });
-
-    router.push('/workout-plan');
+  
+    // Navigate to the workout plan page
+    router.push(`/workout-plan?id=${plan._id}`);
   }
 
-  function deletePlan(id: string) {
-    const updatedPlans = savedPlans.filter(plan => plan.id !== id);
-    setSavedPlans(updatedPlans);
-    localStorage.setItem('savedPlans', JSON.stringify(updatedPlans));
+  function deletePlan(planId: string) {
+    setDeletingPlanId(planId); 
 
-    toast({
-      title: "Plan Deleted",
-      description: "Your workout plan has been removed.",
-    });
+    fetch(`/api/plans/${planId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to delete the plan');
+        }
+        setSavedPlans((prevPlans) => prevPlans.filter((plan) => plan._id !== planId));
+        toast({
+          title: "Plan Deleted",
+          description: "Your workout plan has been successfully deleted.",
+        });
+      })
+      .catch((error) => {
+        console.error('Failed to delete the plan:', error);
+        toast({
+          title: "Error",
+          description: "An error occurred while deleting the plan.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setDeletingPlanId(''); 
+      });
   }
 
-  if (!isClient) {
-    return null; // Prevent hydration errors
+  if (isLoading) {
+    return <div className="container flex items-center justify-center min-h-[60vh] mx-auto">Loading...</div>;
   }
 
   if (savedPlans.length === 0) {
@@ -72,7 +136,7 @@ export default function MyPlansPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {savedPlans.map((plan) => (
-            <Card key={plan.id} className="flex flex-col">
+            <Card key={plan._id} className="flex flex-col">
               <CardHeader>
                 <CardTitle>{plan.name}</CardTitle>
                 <CardDescription>
@@ -114,7 +178,9 @@ export default function MyPlansPage() {
                   <Button variant="outline" className="flex-1" onClick={() => loadPlan(plan)}>
                     Load
                   </Button>
-                  <Button variant="destructive" className="flex-1" onClick={() => deletePlan(plan.id!)}>
+                  <Button variant="destructive" className="flex-1" onClick={() => deletePlan(plan._id)}
+                  disabled={deletingPlanId === plan._id}
+                    >
                     Delete
                   </Button>
                 </div>

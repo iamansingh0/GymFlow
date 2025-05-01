@@ -14,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { useQueryParams } from '@/hooks/use-query-params';
 import { generatePlan } from '@/lib/plan-generator';
+import { useSession } from "next-auth/react";
 
 const formSchema = z.object({
   fitnessLevel: z.enum(["beginner", "intermediate", "advanced"]),
@@ -27,6 +28,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export default function CreatePlanPage() {
+  const { data: session } = useSession();
   const router = useRouter();
   const { getQueryParam } = useQueryParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,15 +52,28 @@ export default function CreatePlanPage() {
       const plan = generatePlan(data);
       console.log(plan)
 
-      // Store plan in localStorage (in a real app, this would go to a database)
-      localStorage.setItem('currentPlan', JSON.stringify(plan));
-      
+      const response = await fetch('/api/plans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...plan,
+          userId: session?.user.id, // Include the user ID from the session
+        }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to save the plan');
+      }
+
+      const savedPlan = await response.json();
+
       toast({
         title: "Plan Created!",
         description: "Your custom workout plan has been generated.",
       });
       
-      router.push('/workout-plan');
+      router.push(`/workout-plan?id=${savedPlan._id}`);
     } catch (error) {
       toast({
         title: "Error",

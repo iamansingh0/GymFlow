@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,48 +11,84 @@ import { useToast } from "@/hooks/use-toast";
 import { WorkoutPlan } from '@/types/workout';
 import { ExerciseCard } from '@/components/exercise-card';
 import { NutritionSummary } from '@/components/nutrition-summary';
+import { useSession } from "next-auth/react";
 
 export default function WorkoutPlanPage() {
+  const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [plan, setPlan] = useState<WorkoutPlan | null>(null);
   const [selectedDay, setSelectedDay] = useState("day1");
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
+  const userId = session?.user?.id;
 
   useEffect(() => {
     setIsClient(true);
-    const storedPlan = localStorage.getItem('currentPlan');
-    if (storedPlan) {
-      setPlan(JSON.parse(storedPlan));
-    } else {
-      // No plan exists, redirect to create plan page
-      router.push('/create-plan');
-    }
-  }, [router]);
+  
+    const fetchPlan = async () => {
+      const planId = searchParams.get('id'); 
+      if (!planId) {
+        router.push('/my-plans');
+        return;
+      }
+      try {
+        const response = await fetch(`/api/plans/${planId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const fetchedPlan = await response.json();
+          setPlan(fetchedPlan);
+          toast({
+            title: "Plan Loaded",
+            description: "Your workout plan has been loadeddd.",
+          });
+        } else {
+          router.push('/my-plans');
+        }
+      } catch (error) {
+        console.error('Failed to fetch the plan:', error);
+        router.push('/my-plans');
+      }
+    };
+  
+    fetchPlan();
+  }, [router, searchParams]);
 
   function savePlan() {
     if (!plan) return;
-    
-    // Get existing saved plans
-    const savedPlansJson = localStorage.getItem('savedPlans');
-    const savedPlans = savedPlansJson ? JSON.parse(savedPlansJson) : [];
-    
-    // Add current plan with timestamp
-    const planToSave = {
-      ...plan,
-      id: Date.now().toString(),
-      savedAt: new Date().toISOString()
-    };
-    
-    savedPlans.push(planToSave);
-    
-    // Save updated plans list
-    localStorage.setItem('savedPlans', JSON.stringify(savedPlans));
-    
-    toast({
-      title: "Plan Saved",
-      description: "Your workout plan has been saved to your collection.",
-    });
+  
+    fetch('/api/plans', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(plan),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Failed to save the plan');
+        }
+        return response.json();
+      })
+      .then((savedPlan) => {
+        toast({
+          title: "Plan Saved",
+          description: "Your workout plan has been saved to your account.",
+        });
+      })
+      .catch((error) => {
+        console.error(error);
+        toast({
+          title: "Error",
+          description: "There was a problem saving your plan. Please try again.",
+          variant: "destructive",
+        });
+      });
   }
 
   if (!isClient) {
@@ -61,11 +97,7 @@ export default function WorkoutPlanPage() {
 
   if (!plan) {
     return (
-      <div className="container flex flex-col items-center justify-center min-h-[60vh] mx-auto">
-        <h2 className="text-2xl font-bold mb-2">No Active Workout Plan</h2>
-        <p className="text-muted-foreground mb-6">Create a plan to get started</p>
-        <Button onClick={() => router.push('/create-plan')}>Create a Plan</Button>
-      </div>
+      <div className="container flex items-center justify-center min-h-[60vh] mx-auto">Loading...</div>
     );
   }
 

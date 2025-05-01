@@ -1,4 +1,5 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, model, Schema } from 'mongoose';
+import { models } from 'mongoose';
 
 // Exercise sub-schema
 const ExerciseSchema = new Schema({
@@ -103,5 +104,5 @@ export interface IWorkoutPlan extends Document {
 }
 
 // Create and export the model
-const WorkoutPlan = mongoose.model<IWorkoutPlan>('WorkoutPlan', WorkoutPlanSchema);
+const WorkoutPlan = models.WorkoutPlan || model('WorkoutPlan', WorkoutPlanSchema);
 export default WorkoutPlan;
