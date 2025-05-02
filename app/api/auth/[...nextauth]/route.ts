@@ -53,7 +53,10 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       if (token) {
-        session?.user?.id = token.id;
+        if (!session.user) {
+          session.user = {}; // Ensure session.user is defined
+        }
+        session.user.id = token.id; // Assign the token ID to session.user.id
       }
       return session;
     }
