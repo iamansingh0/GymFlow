@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { Providers } from './providers';
 import { MainNav } from '@/components/main-nav';
+import SessionProviderWrapper from '@/lib/SessionProviderWrapper';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,21 +22,23 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-          >
-            <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="container flex h-16 items-center w-full mx-auto">
-                <MainNav />
-              </div>
-            </header>
-            {children}
-            <Toaster />
-          </ThemeProvider>
-        </Providers>
+        <SessionProviderWrapper>
+          <Providers>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+            >
+              <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <div className="container flex h-16 items-center w-full mx-auto">
+                  <MainNav />
+                </div>
+              </header>
+              {children}
+              <Toaster />
+            </ThemeProvider>
+          </Providers>
+        </SessionProviderWrapper>
       </body>
     </html>
   );

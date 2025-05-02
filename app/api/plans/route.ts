@@ -48,3 +48,30 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Failed to fetch plans' }, { status: 500 });
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    await connectDB();
+
+    const { planId, ...updatedData } = await req.json();
+
+    if (!planId) {
+      return NextResponse.json({ error: 'Plan ID is required' }, { status: 400 });
+    }
+
+    // Find and update the workout plan
+    const updatedPlan = await WorkoutPlan.findByIdAndUpdate(planId, updatedData, {
+      new: true,
+      runValidators: true, 
+    });
+
+    if (!updatedPlan) {
+      return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(updatedPlan, { status: 200 });
+  } catch (error) {
+    console.error('Error updating plan:', error);
+    return NextResponse.json({ error: 'Failed to update the plan' }, { status: 500 });
+  }
+}

@@ -59,38 +59,6 @@ export default function WorkoutPlanPage() {
     fetchPlan();
   }, [router, searchParams]);
 
-  function savePlan() {
-    if (!plan) return;
-  
-    fetch('/api/plans', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(plan),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Failed to save the plan');
-        }
-        return response.json();
-      })
-      .then((savedPlan) => {
-        toast({
-          title: "Plan Saved",
-          description: "Your workout plan has been saved to your account.",
-        });
-      })
-      .catch((error) => {
-        console.error(error);
-        toast({
-          title: "Error",
-          description: "There was a problem saving your plan. Please try again.",
-          variant: "destructive",
-        });
-      });
-  }
-
   if (!isClient) {
     return null; // Prevent hydration errors
   }
@@ -112,10 +80,15 @@ export default function WorkoutPlanPage() {
             </p>
           </div>
           <div className="flex gap-2 px-4 sm:px-0">
-            <Button variant="outline" onClick={() => router.push('/create-plan')}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                localStorage.setItem('currentPlan', JSON.stringify(plan))
+                router.push('/create-plan')
+              }}
+            >
               Edit Plan
             </Button>
-            <Button onClick={savePlan}>Save Plan</Button>
           </div>
         </div>
 

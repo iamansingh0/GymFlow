@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -33,33 +33,41 @@ export default function CreatePlanPage() {
   const { getQueryParam } = useQueryParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  // const [plan, setPlan] = useState<FormValues | null>(null)
+
+  const plan = localStorage.getItem('currentPlan');
+  const workoutPlan = JSON.parse(plan);
+  console.log(workoutPlan);
+  
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      fitnessLevel: (getQueryParam('level') as any) || 'beginner',
-      fitnessGoal: 'improve-fitness',
-      workoutDays: 3,
-      calorieIntake: 2000,
-      proteinIntake: 100,
-      equipment: 'gym',
+      fitnessLevel: workoutPlan?.level || ((getQueryParam('level') as any) || 'beginner'),
+      fitnessGoal: workoutPlan?.goal || 'improve-fitness',
+      workoutDays: workoutPlan?.days.length || 3,
+      calorieIntake: workoutPlan?.nutrition?.calories || 2000,
+      proteinIntake: workoutPlan?.nutrition?.protien || 100,
+      equipment: workoutPlan?.equipment || 'gym',
     },
   });
 
   async function onSubmit(data: FormValues) {
     setIsSubmitting(true);
     try {
+      const method = workoutPlan?._id ? 'PUT' : 'POST';
       const plan = generatePlan(data);
       console.log(plan)
 
       const response = await fetch('/api/plans', {
-        method: 'POST',
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           ...plan,
-          userId: session?.user.id, // Include the user ID from the session
+          userId: session?.user.id,
+          ...(workoutPlan?._id && { planId: workoutPlan?._id })
         }),
       })
       if (!response.ok) {

@@ -14,10 +14,12 @@ if (!cached) {
 
 async function connectDB() {
   if (cached.conn) {
+    console.log('Using cached database connection');
     return cached.conn;
   }
 
   if (!cached.promise) {
+    console.log('Creating new database connection');
     const opts = {
       bufferCommands: false,
     };
